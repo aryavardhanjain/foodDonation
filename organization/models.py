@@ -27,9 +27,9 @@ class Organization(models.Model):
                     'is_approved': self.is_approved,
                 }
                 if self.is_approved == True:
-                    mail_subject = "Congratulations! Your restaurant has been approved."
+                    mail_subject = "Congratulations! Your Organization has been approved."
                     send_notification(mail_subject, mail_template, context)
                 else:
-                    mail_subject = "We're sorry! Your are not eligible for publishing your food menu on our marketplace."
+                    mail_subject = "We're sorry! Your are not eligible." 
                     send_notification(mail_subject, mail_template, context)
         return super(Organization, self).save(*args, **kwargs)
