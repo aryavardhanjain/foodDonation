@@ -1,5 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import BaseUserManager, AbstractBaseUser
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 # Create your models here.
 class UserManager(BaseUserManager):
@@ -95,3 +98,30 @@ class UserProfile(models.Model):
     def __str__(self):
         return self.user.email
     
+class Report(models.Model):
+    REPORT_REASON = [
+        ('spam', 'Spam',),
+        ('fake', 'Fake',),
+    ]
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    objects_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey('content_type', 'objects_id')
+    reason = models.CharField(max_length=150, choices=REPORT_REASON)
+    reported_by = models.ForeignKey(User, related_name='reports', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.get_reason_display()} report for {self.content_object}"
+    
+class Rating(models.Model):
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey('content_type', 'object_id')
+    rating = models.PositiveSmallIntegerField(validators = [MinValueValidator(1), MaxValueValidator(5)])
+    description = models.TextField(blank=True, null=True)
+    rated_by = models.ForeignKey(User, related_name = 'ratings', on_delete = models.CASCADE)
+    rated_on = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Rating {self.rating} for {self.content_object} by {self.rated_by}"

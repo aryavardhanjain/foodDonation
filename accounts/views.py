@@ -2,7 +2,7 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 from django.http import JsonResponse
 from .forms import UserForm
-from .models import User, UserProfile
+from .models import User, UserProfile, Report, Rating
 from organization.forms import OrganizationForm
 from organization.models import Organization
 from django.contrib import auth
@@ -13,6 +13,9 @@ from django.core.exceptions import PermissionDenied
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_decode
+from rest_framework import viewsets
+from .serializers import ReportSerializer, RatingSerializer
+from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
 
 # Create your views here.
 def check_role_organization(user):
@@ -183,3 +186,18 @@ def activate(request, uidb64, token):
     else:
         return JsonResponse({'error': 'Invalid activation link.'}, status=401)
 
+class ReportViewSet(viewsets.ModelViewSet):
+    queryset = Report.objects.all()
+    serializer_class = ReportSerializer
+    permission_classes = [IsAuthenticated]
+
+    # def perform_create(self, serializer):
+    #     serializer.save(reported_by=self.request.user)
+
+class RatingViewSet(viewsets.ModelViewSet):
+    queryset = Rating.objects.all()
+    serializer_class = RatingSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def perform_create(self, serializer):
+        serializer.save(rated_by=self.request.user)
