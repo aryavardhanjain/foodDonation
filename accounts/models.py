@@ -6,7 +6,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 
 # Create your models here.
 class UserManager(BaseUserManager):
-    def create_user(self, first_name, last_name, username, email, password=None):
+    def create_user(self, first_name, last_name, username, email, password=None, **extra_fields):
         if not email:
             raise ValueError("User must have an email address")
         
@@ -18,12 +18,13 @@ class UserManager(BaseUserManager):
             username = username,
             first_name = first_name,
             last_name = last_name,
+            **extra_fields,
         )
         user.set_password(password)
         user.save(using=self._db)
         return user
     
-    def create_superuser(self, first_name, last_name, username, email, password=None):
+    def create_superuser(self, first_name, last_name, username, email, password=None, **extra_fields):
         user = self.create_user(
             email = self.normalize_email(email),
             username = username,
@@ -40,17 +41,17 @@ class UserManager(BaseUserManager):
 
 class User(AbstractBaseUser):
     ORGANIZATION = 1
-    CUSTOMER = 2
+    DONOR = 2
 
     ROLE_CHOICE = (
         (ORGANIZATION, 'Organization'),
-        (CUSTOMER, 'Customer')
+        (DONOR, 'Donor')
     )
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
     username = models.CharField(max_length=50, unique=True)
     email = models.EmailField(max_length=100, unique=True)
-    phone_number = models.CharField(max_length=12, blank=True)
+    # phone_number = models.CharField(max_length=12, blank=True)
     role = models.PositiveSmallIntegerField(choices=ROLE_CHOICE, blank=True, null=True)
     date_joined = models.DateTimeField(auto_now_add=True)
     last_login = models.DateTimeField(auto_now_add=True)
@@ -79,7 +80,7 @@ class User(AbstractBaseUser):
         if self.role == 1:
             user_role = 'Organization'
         elif self.role == 2:
-            user_role = 'Customer'
+            user_role = 'Donor'
         return user_role
 
 class UserProfile(models.Model):
@@ -90,8 +91,9 @@ class UserProfile(models.Model):
     state = models.CharField(max_length=15, blank=True, null=True)
     city = models.CharField(max_length=15, blank=True, null=True)
     pin_code = models.CharField(max_length=6, blank=True, null=True)
-    latitude = models.CharField(max_length=20, blank=True, null=True)
-    longitude = models.CharField(max_length=20, blank=True, null=True)
+    about = models.TextField(max_length=1000, blank=True, null=True)
+    # latitude = models.CharField(max_length=20, blank=True, null=True)
+    # longitude = models.CharField(max_length=20, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

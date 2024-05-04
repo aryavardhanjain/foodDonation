@@ -3,7 +3,7 @@ from .models import Event
 from .serializers import EventSerializer
 from django.contrib.contenttypes.models import ContentType
 from rest_framework.response import Response
-from django.views.decorators.csrf import csrf_exempt
+# from django.views.decorators.csrf import csrf_exempt
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 

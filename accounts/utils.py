@@ -8,10 +8,10 @@ from django.conf import settings
 
 def detectUser(user):
     if user.role == 1:
-        redirectUrl = 'VendorDashboard'
+        redirectUrl = 'OrganizationDashboard'
         return redirectUrl
     elif user.role == 2:
-        redirectUrl = 'CustomerDashboard'
+        redirectUrl = 'DonorDashboard'
         return redirectUrl
     elif user.role == None and user.is_superadmin:
         redirectUrl = '/admin'
