@@ -30,5 +30,5 @@ def post_save_create_profile_receiver(sender, instance, created, **kwargs):
             profile = UserProfile.objects.get(user=instance)
             profile.save()  # Consider what you are trying to achieve with this save.
         except UserProfile.DoesNotExist:
-            UserProfile.objects.create(user=instance)
+            UserProfile.objects.get_or_create(user=instance)
             logger.info(f'UserProfile created for {instance.email} on update')

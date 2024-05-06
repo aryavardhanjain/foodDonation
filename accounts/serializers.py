@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Report, Rating, User
+from .models import Report, Rating, User, UserProfile
 from django.db import IntegrityError
 from organization.models import Organization
 import uuid
@@ -9,9 +9,10 @@ class UserSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'username', 'email', 'password', 'role', 'confirm_password']
+        fields = ['first_name', 'last_name', 'username', 'phone_number', 'email', 'password', 'role', 'confirm_password']
         extra_kwargs = {
             'password' : {'write_only': True},
+            'role': {'read_only': True},
             'first_name': {'required': False},
             'last_name': {'required': False},
             'username': {'required': False}
@@ -24,9 +25,11 @@ class UserSerializer(serializers.ModelSerializer):
             username=validated_data.get('username', self.create_unique_username()),
             first_name=validated_data.get('first_name', ''),
             last_name=validated_data.get('last_name', ''),
+            phone_number=validated_data.get('phone_number')
         )
         user.set_password(validated_data['password'])
-        user.role = validated_data.get('role', User.DONOR)
+        role = self.context.get('role', User.DONOR)
+        user.role = role
         user.save()
         return user
     
@@ -38,7 +41,7 @@ class UserSerializer(serializers.ModelSerializer):
         if data['password'] != data.pop('confirm_password'):
             raise serializers.ValidationError({"password": "Password fields didn't match."})
         
-        role = data.get('role')
+        role = self.context.get('role', data.get('role', User.DONOR))
         if role == User.ORGANIZATION:
             # Organizations might not need these fields
             pass
@@ -59,10 +62,14 @@ class OrganizationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Organization
-        fields = ['user', 'organization_name', 'chairman_name', 'phone_number', 'registered_address', 'organization_license', 'is_approved']
-        read_only_fields = ['is_approved', 'user']
+        fields = ['user', 'organization_name', 'chairman_name', 'registered_address', 'organization_license', 'is_approved', 'created_at']
+        read_only_fields = ['is_approved']
 
     def create(self, validated_data):
+        user = validated_data['user']
+        # Ensure user_profile is retrieved or created
+        user_profile, _ = UserProfile.objects.get_or_create(user=user)
+        validated_data['user_profile'] = user_profile
         return Organization.objects.create(**validated_data)
 
 class ReportSerializer(serializers.ModelSerializer):

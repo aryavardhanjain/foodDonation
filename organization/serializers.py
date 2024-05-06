@@ -1,6 +1,5 @@
 from rest_framework import serializers
-from django.contrib.contenttypes.models import ContentType
-from .models import Event, User, Organization
+from .models import Event
 
 class EventSerializer(serializers.ModelSerializer):
     date = serializers.DateTimeField(format='%d-%m-%Y', input_formats=['%d-%m-%Y', 'iso-8601'])
@@ -8,4 +7,5 @@ class EventSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Event
-        fields = '__all__'
+        fields = ['id', 'organization', 'title', 'description', 'date', 'time', 'location', 'latitude', 'longitude', 'created_at', 'updated_at']
+        read_only_fields = ['organization', 'created_at', 'updated_at']

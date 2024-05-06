@@ -1,5 +1,5 @@
 # from django.http import JsonResponse
-from .models import User, Report, Rating, User, UserProfile
+from .models import User, Report, Rating, User
 from organization.models import Organization
 from django.contrib.auth import logout
 from django.contrib import auth
@@ -44,155 +44,62 @@ def check_role_donor(user):
 
 class RegisterUserAPIView(APIView):
     def post(self, request):
-        serializer = UserSerializer(data=request.data)
+        serializer = UserSerializer(data=request.data, context={'role': User.DONOR})
         if serializer.is_valid():
             user = serializer.save()
             send_verification_email(request, user, 'Please activate your account', 'accounts/emails/account_verification_email.html')
             return Response({'message': 'Registration successful! Account activation link has been sent to your email account. '}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class UserActiveCheckAPIView(APIView):
+    def get(self, request, *args, **kwargs):
+        email = request.query_params.get('email', None)
+        if email is None:
+            return Response({'error': 'Parameter email required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            user = User.objects.get(email=email)
+            return Response(user.is_active, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
 
 class RegisterOrganizationAPIView(APIView):
         def post(self, request):
-            with transaction.atomic():  # Use a transaction to ensure all or nothing is committed
-                user_data = {
-                    'email': request.data.get('email'),
-                    'password': request.data.get('password'),
-                    'confirm_password': request.data.get('confirm_password'),
-                    'role': User.ORGANIZATION
-                }
-                user_serializer = UserSerializer(data=user_data)
+            with transaction.atomic():
+                user_serializer = UserSerializer(data=request.data, context={'role': User.ORGANIZATION})
                 if user_serializer.is_valid():
                     user = user_serializer.save()
-
-                    organization_data = request.data.get('organization', {})
-                    # organization_data['user'] = user.id
-
-                    # Create or ensure a UserProfile exists
-                    profile, created = UserProfile.objects.get_or_create(user=user)
-                    if not profile:
-                        logger.error("UserProfile creation failed for user: %s", user.email)
-                        return Response({
-                            'error': 'UserProfile could not be created.'
-                        }, status=status.HTTP_400_BAD_REQUEST)
-
-                    # Now set up organization data ensuring the user_profile is linked
                     organization_data = {
                         'user': user.id,
-                        'user_profile': profile.id,
                         'organization_name': request.data.get('organization_name'),
                         'chairman_name': request.data.get('chairman_name'),
                         'phone_number': request.data.get('phone_number'),
                         'registered_address': request.data.get('registered_address'),
-                        'organization_license': request.data.get('organization_license')
                     }
+
                     organization_serializer = OrganizationSerializer(data=organization_data)
                     if organization_serializer.is_valid():
                         organization = organization_serializer.save()
-                        organization.user = user
-                        organization.user_profile = UserProfile.objects.get(user=user)
-                        organization.save()
-                        return Response({
-                            'message': 'Organization registered successfully!'
-                        }, status=status.HTTP_201_CREATED)
+                        send_verification_email(request, user, 'Please activate your account', 'accounts/emails/account_verification_email.html')
+                        return Response({'success': 'Registration successful! Activation link sent successfully.'}, status=status.HTTP_201_CREATED)
                     else:
-                        return Response({
-                            'errors': organization_serializer.errors
-                        }, status=status.HTTP_400_BAD_REQUEST)
+                        return Response({'errors': organization_serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
                 else:
-                    return Response({
-                        'errors': user_serializer.errors
-                    }, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({'errors': user_serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
-        # user_data = request.data.get('user', '{}')
-        # try:
-        #     user_data = json.loads(user_data)  # Ensuring user data is correctly parsed
-        # except json.JSONDecodeError:
-        #     return Response({'error': 'Invalid user data format.'}, status=status.HTTP_400_BAD_REQUEST)
+class UploadLicenseAPIView(APIView):
+    parser_classes = (MultiPartParser, FormParser)
 
-        # user_serializer = UserSerializer(data=user_data, context={'role': User.ORGANIZATION, 'request': request})
-        # if user_serializer.is_valid():
-        #     user = user_serializer.save()
-        #     token, created = Token.objects.get_or_create(user=user)
-        
-        #     organization_data = {
-        #         'user': user.id,
-        #         'organization_name': request.data.get('organization_name'),
-        #         'chairman_name': request.data.get('chairman_name'),
-        #         'phone_number': request.data.get('phone_number'),
-        #         'registered_address': request.data.get('registered_address'),
-        #         'organization_license': request.data.get('organization_license'),
-        #     }
-
-
-        #     # Prepare organization data, now with correct user linkage
-        #     organization_data['user'] = user.id
-        #     organization_serializer = OrganizationSerializer(data=organization_data)
-        #     if organization_serializer.is_valid():
-        #         organization_serializer.save()
-        #         send_verification_email(request, user, 'Please activate your account.', 'accounts/emails/account_verification_email.html')
-        #         return Response({
-        #             'message': 'Account registered successfully! Activation link sent.',
-        #             'token': token.key
-        #         }, status=status.HTTP_201_CREATED)
-        #     else:
-        #         return Response({'errors': organization_serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
-        # else:
-        #     return Response({'errors': user_serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
-
-
-# @csrf_exempt
-# def uploadLicense(request, organization_name):
-#     try:
-#         organization = Organization.objects.get(organization_name=organization_name)
-#     except Organization.DoesNotExist:
-#         return JsonResponse({'message': 'Organization not found.'}, status=400)
-    
-#     if request.method == 'POST':
-#         form  =OrganizationForm(request.POST, request.FILES, instance=organization)
-#         if form.is_valid():
-#             form.save()
-#             return JsonResponse({'message': 'Organization License uploaded.'}, status=200)
-#         else:
-#             return JsonResponse({'errors': form.errors}, status=400)
-#     else:
-#         return JsonResponse({'message': 'Invalid request method.'}, status=400)
-    
-# @csrf_exempt
-# def login(request):
-#     if request.user.is_authenticated:
-#         return JsonResponse({'message': 'You are already logged in.'})
-    
-#     if request.method == 'POST':
-#         try:
-#             data = json.loads(request.body)
-#             email = data.get('email')
-#             password = data.get('password')
-
-#             user = auth.authenticate(email=email, password=password)
-
-#             if user is not None:
-#                 auth.login(request, user)
-#                 return JsonResponse({'message': 'You are now logged in.'})
-#             else:
-#                 return JsonResponse({'message': 'Invalid login credentials.'}, status=400)
-#         except json.JSONDecodeError:
-#             return JsonResponse({'message': 'Invalid JSON data.'}, status=400)
-    
-#     return JsonResponse({'error': 'Invalid request method.'}, status=400)
-
-# class LoginAPIView(APIView):
-#     def post(self, request, *args, **kwargs):
-#         username = request.data.get('username')
-#         password = request.data.get('password')
-#         user = authenticate(request=request, username=username, password=password)
-#         if user is not None:
-#             login(request, user)
-#             return Response({'message': 'You are now logged in.'})
-#         else:
-#             return Response({'error': 'Invalid login credentials! Please try again.'}, status=status.HTTP_401_UNAUTHORIZED)
-
-# 
+    def post(self, request, organization_id):
+        try:
+            organization = Organization.objects.get(id=organization_id)
+            organization.organization_license = request.FILES.get('license')
+            organization.save()
+            return Response({'message': 'License uploaded successfully.'}, status=status.HTTP_200_OK)
+        except Organization.DoesNotExist:
+            return Response({'error': 'Organization not found.'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class LoginAPIView(APIView):
     permission_classes = [AllowAny]
@@ -215,6 +122,40 @@ class LoginAPIView(APIView):
             return JsonResponse({'message': 'You are now logged in.', 'token': token.key, 'user': user_data}, status=status.HTTP_200_OK)
         else:
             return JsonResponse({'error': 'Invalid login credentials! Please try again.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    def get(self, request, *args, **kwargs):
+        return JsonResponse({'detail': 'POST request expected.'}, status=status.HTTP_400_BAD_REQUEST)
+
+class LoginOrganizationAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            return JsonResponse({'message': 'You are already logged in.'}, status=status.HTTP_200_OK)
+
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        if not email or not password:
+            return JsonResponse({'error': 'Email and password are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = auth.authenticate(request=request, username=email, password=password)
+        if user is not None:
+            auth.login(request, user)
+            token, _ = Token.objects.get_or_create(user=user)
+            user_data = UserSerializer(user).data
+            try:
+                organization = Organization.objects.get(user=user)
+                organization_data = OrganizationSerializer(organization).data
+                user_data['organization'] = organization_data
+                user_data['organization_created_at'] = organization_data['created_at']  # Add the organization's created_at
+            except Organization.DoesNotExist:
+                user_data['organization'] = None
+                user_data['organization_created_at'] = organization_data.get('created_at', 'Not available')  # Add the organization's created_at
+
+            return Response({'message': 'You are now logged in.', 'token': token.key, 'user': user_data}, status=status.HTTP_200_OK)
+        else:
+            return Response({'error': 'Invalid login credentials! Please try again.'}, status=status.HTTP_401_UNAUTHORIZED)
 
     def get(self, request, *args, **kwargs):
         return JsonResponse({'detail': 'POST request expected.'}, status=status.HTTP_400_BAD_REQUEST)

@@ -31,7 +31,7 @@ from .views import (
     RegisterUserAPIView, RegisterOrganizationAPIView,
     LoginAPIView, LogoutAPIView, ActivateAccountAPIView,
     MyAccountAPIView, DonorDashboardAPIView,
-    OrganizationDashboardAPIView, ReportViewSet, RatingViewSet
+    OrganizationDashboardAPIView, ReportViewSet, RatingViewSet, UploadLicenseAPIView, UserActiveCheckAPIView, LoginOrganizationAPIView
 )
 from rest_framework.routers import DefaultRouter
 
@@ -43,11 +43,14 @@ urlpatterns = [
     path('api/register-user/', RegisterUserAPIView.as_view(), name='register_user'),
     path('api/register-organization/', RegisterOrganizationAPIView.as_view(), name='register_organization'),
     path('api/login/', LoginAPIView.as_view(), name='login'),
+    path('api/login-organization/', LoginOrganizationAPIView.as_view(), name='login_org'),
     path('api/logout/', LogoutAPIView.as_view(), name='logout'),
     path('api/my-account/', MyAccountAPIView.as_view(), name='my_account'),
     path('api/customer-dashboard/', DonorDashboardAPIView.as_view(), name='customer_dashboard'),
     path('api/organization-dashboard/', OrganizationDashboardAPIView.as_view(), name='organization_dashboard'),
     path('api/activate/<uidb64>/<token>/', ActivateAccountAPIView.as_view(), name='activate'),
+    path('api/upload-license/<str:organization_name>/', UploadLicenseAPIView.as_view(), name='upload_license'),
+    path('api/check-user-active/', UserActiveCheckAPIView.as_view(), name='check_user_active'),
     path('api/', include(router.urls)),
     # path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     # path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

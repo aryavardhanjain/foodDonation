@@ -6,18 +6,12 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 
 # Create your models here.
 class UserManager(BaseUserManager):
-    def create_user(self, first_name, last_name, username, email, password=None, **extra_fields):
+    def create_user(self, email, password=None, **extra_fields):
         if not email:
             raise ValueError("User must have an email address")
         
-        if not username:
-            raise ValueError("User must have a username")
-        
         user = self.model(
             email = self.normalize_email(email),
-            username = username,
-            first_name = first_name,
-            last_name = last_name,
             **extra_fields,
         )
         user.set_password(password)
@@ -51,7 +45,7 @@ class User(AbstractBaseUser):
     last_name = models.CharField(max_length=50)
     username = models.CharField(max_length=50, unique=True)
     email = models.EmailField(max_length=100, unique=True)
-    # phone_number = models.CharField(max_length=12, blank=True)
+    phone_number = models.CharField(max_length=20, default = '')
     role = models.PositiveSmallIntegerField(choices=ROLE_CHOICE, blank=True, null=True)
     date_joined = models.DateTimeField(auto_now_add=True)
     last_login = models.DateTimeField(auto_now_add=True)
@@ -127,3 +121,33 @@ class Rating(models.Model):
 
     def __str__(self):
         return f"Rating {self.rating} for {self.content_object} by {self.rated_by}"
+    
+class FoodDonation(models.Model):
+    FOOD_TYPES = [
+        ('VEGETARIAN', 'Vegetarian'),
+        ('NON-VEGETARIAN', 'Non-Vegetarian'),
+        ('VEGAN', 'Vegan')
+    ]
+
+    PERISHABILITY_CHOICES = [
+        ('PERISHABLE', 'Perishable'),
+        ('NON-PERISHABLE', 'Non-Perishable'),
+    ]
+
+    DELIVERY_METHOD = [
+        ('PICK-UP', 'Pick-Up'),
+        ('DROP', 'Drop'),
+    ]
+
+    donor = models.ForeignKey(User, related_name='food_donations', on_delete=models.CASCADE)
+    name_donor = models.CharField(max_length=50)
+    food_type = models.CharField(max_length=50, choices=FOOD_TYPES)
+    perishability = models.CharField(max_length=50, choices=PERISHABILITY_CHOICES)
+    delivery_method = models.CharField(max_length=50, choices=DELIVERY_METHOD)
+    quantity = models.TextField()
+    status = models.CharField(max_length=20, default='Pending', choices=[('PENDING', 'Pending'), ('ACCEPTED', 'Accepted'), ('REJECTED', 'Rejected')])
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.food_type} ({self.perishability}) - {self.delivery_method} donation by {self.donor}"
