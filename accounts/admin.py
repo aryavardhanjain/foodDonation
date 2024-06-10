@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import User, UserProfile, Rating, Report
+from .models import User, UserProfile, Rating, Report, FoodDonation
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.contenttypes.models import ContentType
 
@@ -20,8 +20,12 @@ class ReportAdmin(admin.ModelAdmin):
     list_filter = ('reason', 'created_at')
     search_fields = ('reason', 'reported_by__email', 'content_object__username')
 
+class FoodDonationAdmin(admin.ModelAdmin):
+    list_display = ('name_donor', 'food_type', 'delivery_method', 'status')
+
 admin.site.register(User, CustomerUserAdmin)
 admin.site.register(UserProfile)
 admin.site.register(Rating)
 admin.site.register(Report, ReportAdmin)
 admin.site.register(ContentType, ContentTypeAdmin)
+admin.site.register(FoodDonation, FoodDonationAdmin)

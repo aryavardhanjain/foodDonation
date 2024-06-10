@@ -111,16 +111,14 @@ class Report(models.Model):
         return f"{self.get_reason_display()} report for {self.content_object}"
     
 class Rating(models.Model):
-    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    object_id = models.PositiveIntegerField()
-    content_object = GenericForeignKey('content_type', 'object_id')
+    organization = models.ForeignKey('organization.Organization', on_delete=models.CASCADE, related_name='ratings')
     rating = models.PositiveSmallIntegerField(validators = [MinValueValidator(1), MaxValueValidator(5)])
     description = models.TextField(blank=True, null=True)
     rated_by = models.ForeignKey(User, related_name = 'ratings', on_delete = models.CASCADE)
     rated_on = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Rating {self.rating} for {self.content_object} by {self.rated_by}"
+        return f"Rating {self.rating} for {self.organization.organization_name} by {self.rated_by}"
     
 class FoodDonation(models.Model):
     FOOD_TYPES = [
@@ -146,6 +144,8 @@ class FoodDonation(models.Model):
     delivery_method = models.CharField(max_length=50, choices=DELIVERY_METHOD)
     quantity = models.TextField()
     status = models.CharField(max_length=20, default='Pending', choices=[('PENDING', 'Pending'), ('ACCEPTED', 'Accepted'), ('REJECTED', 'Rejected')])
+    scheduled_date = models.TextField()
+    scheduled_time = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

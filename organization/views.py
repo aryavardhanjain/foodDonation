@@ -24,7 +24,11 @@ class EventViewSet(viewsets.ModelViewSet):
 class VolunteerForEventAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, event_id):
+    def post(self, request):
+        event_id = request.query_params.get('event_id')
+        if not event_id:
+            return Response({'error': 'Event ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             event = Event.objects.get(id=event_id)
             Volunteer.objects.create(user=request.user, event=event)

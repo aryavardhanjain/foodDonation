@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Report, Rating, User, UserProfile
+from .models import Report, Rating, User, UserProfile, FoodDonation
 from django.db import IntegrityError
 from organization.models import Organization
 import uuid
@@ -58,11 +58,12 @@ class UserSerializer(serializers.ModelSerializer):
         return value
 
 class OrganizationSerializer(serializers.ModelSerializer):
+    user_details = UserSerializer(source='user', read_only=True)
     user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), write_only=True)
 
     class Meta:
         model = Organization
-        fields = ['user', 'organization_name', 'chairman_name', 'registered_address', 'organization_license', 'is_approved', 'created_at']
+        fields = ['id', 'user', 'user_details', 'organization_name', 'chairman_name', 'registered_address', 'organization_license', 'is_approved', 'created_at']
         read_only_fields = ['is_approved']
 
     def create(self, validated_data):
@@ -103,7 +104,7 @@ class RatingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Rating
         fields = '__all__'
-        read_only_fields = ('rated_on', 'rated_by')
+        read_only_fields = ('rated_on', 'rated_by', 'organization')
 
     def get_rated_by_email(self, obj):
         return obj.rated_by.email
@@ -112,3 +113,13 @@ class RatingSerializer(serializers.ModelSerializer):
         if not (1 <= value <= 5):
             raise serializers.ValidationError('Rating must be between 1 and 5. ')
         return value
+    
+class FoodDonationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FoodDonation
+        fields = '__all__'
+        read_only_fields = ['donor', 'status', 'created_at', 'updated_at']
+
+    def create(self, validated_data):
+        validated_data['donor'] = self.context['request'].user
+        return super().create(validated_data)

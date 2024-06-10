@@ -7,5 +7,5 @@ router.register(r'events', EventViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('api/events/<int:event_id>/volunteer/', VolunteerForEventAPIView.as_view(), name='volunteer_for_event'),
+    path('api/events/volunteer/', VolunteerForEventAPIView.as_view(), name='volunteer_for_event'),
 ]

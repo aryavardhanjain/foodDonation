@@ -2,8 +2,6 @@ from django.db import models
 from django.db import models
 from accounts.utils import send_notification
 from accounts.models import User, UserProfile
-from django.contrib.contenttypes.models import ContentType
-from django.contrib.contenttypes.fields import GenericForeignKey
 
 # Create your models here.
 class Organization(models.Model):

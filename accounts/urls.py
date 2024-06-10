@@ -31,13 +31,14 @@ from .views import (
     RegisterUserAPIView, RegisterOrganizationAPIView,
     LoginAPIView, LogoutAPIView, ActivateAccountAPIView,
     MyAccountAPIView, DonorDashboardAPIView,
-    OrganizationDashboardAPIView, ReportViewSet, RatingViewSet, UploadLicenseAPIView, UserActiveCheckAPIView, LoginOrganizationAPIView
+    OrganizationDashboardAPIView, ReportViewSet, RatingViewSet, UploadLicenseAPIView, UserActiveCheckAPIView, LoginOrganizationAPIView, RatingByOrganizationAPIView, FoodDonationViewSet,
 )
 from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
 router.register(r'reports', ReportViewSet)
 router.register(r'ratings', RatingViewSet)
+router.register(r'food-donations', FoodDonationViewSet)
 
 urlpatterns = [
     path('api/register-user/', RegisterUserAPIView.as_view(), name='register_user'),
@@ -49,8 +50,12 @@ urlpatterns = [
     path('api/customer-dashboard/', DonorDashboardAPIView.as_view(), name='customer_dashboard'),
     path('api/organization-dashboard/', OrganizationDashboardAPIView.as_view(), name='organization_dashboard'),
     path('api/activate/<uidb64>/<token>/', ActivateAccountAPIView.as_view(), name='activate'),
-    path('api/upload-license/<str:organization_name>/', UploadLicenseAPIView.as_view(), name='upload_license'),
+    path('api/upload-license/<int:organization_id>/', UploadLicenseAPIView.as_view(), name='upload_license'),
     path('api/check-user-active/', UserActiveCheckAPIView.as_view(), name='check_user_active'),
+    path('api/ratings/org/', RatingByOrganizationAPIView.as_view(), name='ratings-by-organization'),
+    path('api/rateOrg/<int:organization_id>/', RatingViewSet.as_view({
+        'post': 'create',
+    }), name='rate-org'),
     path('api/', include(router.urls)),
     # path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     # path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

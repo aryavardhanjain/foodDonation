@@ -1,30 +1,25 @@
-# from django.http import JsonResponse
-from .models import User, Report, Rating, User
+from .models import User, Report, Rating, User, FoodDonation
 from organization.models import Organization
 from django.contrib.auth import logout
+from django.conf import settings
 from django.contrib import auth
 from django.http import JsonResponse
 from rest_framework.authtoken.models import Token
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
-import json
-# from organization.models import Organization
-from .utils import detectUser, send_verification_email
-# from django.shortcuts import redirect
-# from django.contrib.auth.decorators import login_required, user_passes_test
+from .utils import detectUser, send_verification_email, send_notification
 from django.core.exceptions import PermissionDenied
-# from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .serializers import ReportSerializer, RatingSerializer, UserSerializer, OrganizationSerializer
+from .serializers import ReportSerializer, RatingSerializer, UserSerializer, OrganizationSerializer, FoodDonationSerializer
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated, AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
-from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 import logging
+from rest_framework.decorators import action
+from django.core.mail import send_mail
+
 
 logger = logging.getLogger(__name__)
 
@@ -148,10 +143,12 @@ class LoginOrganizationAPIView(APIView):
                 organization = Organization.objects.get(user=user)
                 organization_data = OrganizationSerializer(organization).data
                 user_data['organization'] = organization_data
-                user_data['organization_created_at'] = organization_data['created_at']  # Add the organization's created_at
+                user_data['organization_created_at'] = organization_data['created_at'] 
+                user_data['organization_id'] = organization_data.get('id', 'Not available')
             except Organization.DoesNotExist:
                 user_data['organization'] = None
-                user_data['organization_created_at'] = organization_data.get('created_at', 'Not available')  # Add the organization's created_at
+                user_data['organization_created_at'] = organization_data.get('created_at', 'Not available')  
+                user_data['organization_id'] = 'Not available'
 
             return Response({'message': 'You are now logged in.', 'token': token.key, 'user': user_data}, status=status.HTTP_200_OK)
         else:
@@ -159,13 +156,6 @@ class LoginOrganizationAPIView(APIView):
 
     def get(self, request, *args, **kwargs):
         return JsonResponse({'detail': 'POST request expected.'}, status=status.HTTP_400_BAD_REQUEST)
-
-# def logout(request):
-#     if request.user.is_authenticated:
-#         auth.logout(request)
-#         return JsonResponse({'message': 'You have been successfully logged out.'})
-#     else:
-#         return JsonResponse({'error': 'You are not logged in.'}, status=400)
 
 class LogoutAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -177,12 +167,6 @@ class LogoutAPIView(APIView):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-# @login_required(login_url='login')    
-# def myAccount(request):
-#     user = request.user
-#     redirectUrl = detectUser(user)
-#     return redirect(redirectUrl)
-
 class MyAccountAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -191,11 +175,6 @@ class MyAccountAPIView(APIView):
         redirectUrl = detectUser(user)
         return Response({'redirect_url': redirectUrl})
 
-# @login_required(login_url='login')    
-# @user_passes_test(check_role_customer)
-# def custDashboard(request):
-#     return
-
 class DonorDashboardAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -203,11 +182,6 @@ class DonorDashboardAPIView(APIView):
         if not request.user.role == 2:
             return Response({'error': 'Access denied'})
         return Response({'success': 'Donor Dashboard'})
-
-# @login_required(login_url='login')   
-# @user_passes_test(check_role_organization) 
-# def orgDashboard(request):
-#     return
 
 class OrganizationDashboardAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -232,34 +206,76 @@ class ActivateAccountAPIView(APIView):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-# def activate(request, uidb64, token):
-#     User = get_user_model()
-
-#     try:
-#         uid = urlsafe_base64_decode(uidb64).decode()
-#         user = User._default_manager.get(pk=uid)
-#     except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-#         user = None
-
-#     if user is not None and default_token_generator.check_token(user, token):
-#         user.is_active = True
-#         user.save()
-#         return JsonResponse({'message': 'Account activated successfully.'})
-#     else:
-#         return JsonResponse({'error': 'Invalid activation link.'}, status=401)
-
 class ReportViewSet(viewsets.ModelViewSet):
     queryset = Report.objects.all()
     serializer_class = ReportSerializer
     permission_classes = [IsAuthenticated]
-
-    # def perform_create(self, serializer):
-    #     serializer.save(reported_by=self.request.user)
 
 class RatingViewSet(viewsets.ModelViewSet):
     queryset = Rating.objects.all()
     serializer_class = RatingSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
+    def create(self, request, *args, **kwargs):
+        # Extract organization_id from URL
+        organization_id = kwargs.get('organization_id')
+        try:
+            # Fetch the organization object
+            organization = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return Response({'error': 'Organization not found.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Create a serializer with data and extra organization info
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            # Save the new Rating object with the organization and user
+            serializer.save(organization=organization, rated_by=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class RatingByOrganizationAPIView(APIView):
+    def get(self, request, *args, **kwargs):
+        organization_name = request.query_params.get('organization_name')
+        if not organization_name:
+            return Response({'error': 'Parameter organization_name required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        print("Querying for organization named:", organization_name)
+
+        try:
+            organization = Organization.objects.get(organization_name=organization_name)
+        except Organization.DoesNotExist:
+            return Response({'error': 'Organization not found.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        ratings = Rating.objects.filter(organization=organization)
+        serializer = RatingSerializer(ratings, many=True)
+        return Response(serializer.data)
+    
+class FoodDonationViewSet(viewsets.ModelViewSet):
+    queryset = FoodDonation.objects.all()
+    serializer_class = FoodDonationSerializer
+    permission_classes = [IsAuthenticated]
+
     def perform_create(self, serializer):
-        serializer.save(rated_by=self.request.user)
+        serializer.save(donor=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def change_status(self, request, pk=None):
+        donation = self.get_object()
+        status = request.data.get('status')
+        if status in ['Accepted', 'Declined']:
+            donation.status = status
+            donation.save()
+            self.send_status_email(donation)
+            return Response({'status': 'Status changed'})
+        return Response({'status': 'Invalid status'})
+    
+    def send_status_email(self, donation):
+        mail_subject = f"Your donation application has been {donation.status}"
+        context = {
+            'user': donation.donor,
+            'username': donation.donor.username,
+            'food_type': donation.food_type,
+            'status': donation.status.lower(),
+        }
+        send_notification(mail_subject, 'accounts/emails/donation_status_email.html', context) 
